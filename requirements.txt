@@ -1,3 +1,8 @@
+pathway[all]>=0.7.0
 sentence-transformers>=2.2.2
 torch>=2.0.0
 numpy>=1.24.0
+jsonlines>=3.1.0
+google-genai>=1.0.0
+python-dotenv>=1.0.0
+gradio>=4.0.0
