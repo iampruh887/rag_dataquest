@@ -20,8 +20,7 @@ class MoneyControlScraper:
         
     def create_folder(self):
         """Create a folder with current datetime"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        folder_name = f"moneycontrol_news_{timestamp}"
+        folder_name = f"moneycontrol_news"
         os.makedirs(folder_name, exist_ok=True)
         return folder_name
     

@@ -14,6 +14,11 @@ Complete system for financial news analysis with:
 pip install -r requirements.txt
 ```
 
+1.2 **make knowledgebase**
+```bash
+python scraper.py
+```
+
 2. **Set Google API Key:**
 ```bash
 export GOOGLE_API_KEY='your-api-key-here'
