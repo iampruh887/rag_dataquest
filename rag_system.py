@@ -1,7 +1,3 @@
-"""
-Simple RAG System using Pathway - GPU Optimized
-"""
-
 import pathway as pw
 import json
 import torch
@@ -9,7 +5,6 @@ from pathlib import Path
 from typing import List, Dict
 import jsonlines
 
-# Set Pathway license
 pw.set_license_key("demo-license-key-with-telemetry")
 
 
@@ -17,7 +12,6 @@ class SimpleRAG:
     def __init__(self, data_dir: str = "moneycontrol_news"):
         self.data_dir = Path(data_dir)
         
-        # Check if directory exists
         if not self.data_dir.exists():
             print(f"⚠️  Directory {self.data_dir} not found, using default financial_data")
             self.data_dir = Path("financial_data")
@@ -26,15 +20,12 @@ class SimpleRAG:
         else:
             print(f"📂 Using data from: {self.data_dir}")
         
-        # Use GPU if available
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         print(f"Using device: {self.device}")
         
-        # Setup Pathway components
         self.setup_pathway_rag()
     
     def create_sample_data(self):
-        """Create sample financial data in JSONL format for Pathway"""
         sample_data = [
             {
                 "title": "Tesla Reports Strong Q4 Earnings",
@@ -62,7 +53,6 @@ class SimpleRAG:
             }
         ]
         
-        # Save as JSONL for Pathway
         jsonl_path = self.data_dir / "financial_news.jsonl"
         with jsonlines.open(jsonl_path, mode='w') as writer:
             for item in sample_data:
@@ -71,9 +61,7 @@ class SimpleRAG:
         print(f"Created {len(sample_data)} sample documents")
     
     def setup_pathway_rag(self):
-        """Setup Pathway RAG pipeline"""
         
-        # Define schema for financial news (supports both formats)
         class FinancialNewsSchema(pw.Schema):
             title: str
             content: str
@@ -82,11 +70,9 @@ class SimpleRAG:
             category: str
             author: str
         
-        # Check if we have JSON files
         json_files = list(self.data_dir.glob("*.json"))
         
         if json_files:
-            # Convert JSON files to JSONL for Pathway
             jsonl_path = self.data_dir / "_pathway_data.jsonl"
             
             with jsonlines.open(jsonl_path, mode='w') as writer:
@@ -95,7 +81,6 @@ class SimpleRAG:
                         with open(json_file, 'r') as f:
                             data = json.load(f)
                             
-                            # Normalize the data structure
                             normalized = {
                                 'title': data.get('title', ''),
                                 'content': data.get('content', ''),
@@ -110,14 +95,12 @@ class SimpleRAG:
             
             print(f"✅ Converted {len(json_files)} JSON files to JSONL")
         
-        # Read data with Pathway
         docs = pw.io.jsonlines.read(
             self.data_dir,
             schema=FinancialNewsSchema,
             mode="streaming"
         )
         
-        # Combine text fields using UDF
         @pw.udf
         def combine_text(title: str, content: str, company: str, date: str, category: str) -> str:
             parts = [title]
@@ -131,7 +114,6 @@ class SimpleRAG:
                 parts.append(f"Date: {date}")
             return ". ".join(parts)
         
-        # Create metadata UDF
         @pw.udf
         def create_metadata(title: str, company: str, date: str, category: str) -> dict:
             return {
@@ -141,19 +123,16 @@ class SimpleRAG:
                 "category": category
             }
         
-        # Process documents - create 'data' and '_metadata' columns as Pathway expects
         processed = docs.select(
             data=combine_text(pw.this.title, pw.this.content, pw.this.company, pw.this.date, pw.this.category),
             _metadata=create_metadata(pw.this.title, pw.this.company, pw.this.date, pw.this.category)
         )
         
-        # Setup embedder
         from pathway.xpacks.llm import embedders
         self.embedder = embedders.SentenceTransformerEmbedder(
             model="sentence-transformers/all-MiniLM-L6-v2"
         )
         
-        # Setup vector store
         from pathway.xpacks.llm.vector_store import VectorStoreServer
         self.vector_store = VectorStoreServer(
             processed,
@@ -163,44 +142,26 @@ class SimpleRAG:
         print("✅ Pathway RAG pipeline ready!")
     
     def search(self, query: str, top_k: int = 3) -> List[Dict]:
-        """Search using Pathway vector store"""
-        # Note: Pathway's vector store works in streaming mode
-        # For simple queries, we'll use the embedder directly
         results = []
         
-        # This is a simplified search - in production you'd use Pathway's full capabilities
         print(f"Searching for: {query}")
         
         return results
     
     def get_context(self, query: str, max_length: int = 1000) -> str:
-        """
-        Get context for AI agent - uses semantic search on actual data
-        
-        Args:
-            query: The query to search for
-            max_length: Maximum length of context to return
-            
-        Returns:
-            Formatted context string ready for AI prompt
-        """
         try:
-            # Use the embedder to search for similar content
             jsonl_path = self.data_dir / "_pathway_data.jsonl"
             
             if not jsonl_path.exists():
                 return "No financial data available."
             
-            # Load and search through the data
             import jsonlines
             from sentence_transformers import SentenceTransformer
             import numpy as np
             
-            # Initialize embedder if not already done
             if not hasattr(self, '_search_model'):
                 self._search_model = SentenceTransformer('all-MiniLM-L6-v2', device=self.device)
             
-            # Load documents
             documents = []
             with jsonlines.open(jsonl_path, 'r') as reader:
                 for doc in reader:
@@ -209,7 +170,6 @@ class SimpleRAG:
             if not documents:
                 return "No financial documents found."
             
-            # Create embeddings for documents if not cached
             if not hasattr(self, '_doc_embeddings') or len(self._doc_embeddings) != len(documents):
                 print("🔍 Creating embeddings for search...")
                 texts = [doc.get('content', '') + ' ' + doc.get('title', '') for doc in documents]
@@ -217,17 +177,13 @@ class SimpleRAG:
                 self._cached_docs = documents
                 print(f"✅ Cached {len(documents)} document embeddings")
             
-            # Encode query
             query_embedding = self._search_model.encode([query], convert_to_numpy=True)
             
-            # Calculate similarities
             similarities = np.dot(self._doc_embeddings, query_embedding.T).flatten()
             
-            # Get top 3 most similar documents
             top_indices = np.argsort(similarities)[::-1][:3]
             
-            # Filter by minimum similarity threshold
-            min_similarity = 0.1  # Adjust this threshold as needed
+            min_similarity = 0.1
             relevant_docs = []
             
             for idx in top_indices:
@@ -241,7 +197,6 @@ class SimpleRAG:
             if not relevant_docs:
                 return "No relevant financial information found for your query."
             
-            # Format context
             context_parts = ["Financial Context (via Semantic Search):"]
             current_length = len(context_parts[0])
             
@@ -254,19 +209,16 @@ class SimpleRAG:
                 company = doc.get('company', '')
                 content = doc.get('content', '')
                 
-                # Create formatted entry
                 entry = f"\n\n{i}. {title}"
                 if date and date != 'Unknown date':
                     entry += f" ({date})"
                 if company:
                     entry += f" - {company}"
                 
-                # Add content snippet (limit to avoid too long context)
                 content_snippet = content[:400] + "..." if len(content) > 400 else content
                 entry += f"\n{content_snippet}"
                 entry += f"\n[Relevance: {similarity:.2f}]"
                 
-                # Check if adding this entry would exceed max length
                 if current_length + len(entry) > max_length:
                     break
                 
@@ -280,11 +232,9 @@ class SimpleRAG:
             return f"Error retrieving context: {str(e)}"
 
 
-# Simple global instance
 _rag_instance = None
 
 def get_financial_context(query: str) -> str:
-    """Simple function to get financial context using Pathway"""
     global _rag_instance
     if _rag_instance is None:
         _rag_instance = SimpleRAG()
@@ -293,11 +243,9 @@ def get_financial_context(query: str) -> str:
 
 
 def create_rag_system() -> SimpleRAG:
-    """Create a RAG system instance with Pathway"""
     return SimpleRAG()
 
 
-# Test
 if __name__ == "__main__":
     print("🚀 Testing Pathway RAG System")
     print("=" * 40)

@@ -19,13 +19,11 @@ class MoneyControlScraper:
         }
         
     def create_folder(self):
-        """Create a folder with current datetime"""
         folder_name = f"moneycontrol_news"
         os.makedirs(folder_name, exist_ok=True)
         return folder_name
     
     def get_article_links(self, page_url):
-        """Extract article links from the news page"""
         try:
             response = requests.get(page_url, headers=self.headers, timeout=10)
             response.raise_for_status()
@@ -33,10 +31,8 @@ class MoneyControlScraper:
             
             article_links = set()
             
-            # Find article links - MoneyControl uses specific classes
             for link in soup.find_all('a', href=True):
                 href = link['href']
-                # Filter for news article URLs
                 if '/news/' in href and href.startswith('http'):
                     article_links.add(href)
                 elif href.startswith('/news/'):
@@ -49,7 +45,6 @@ class MoneyControlScraper:
             return []
     
     def scrape_article(self, url):
-        """Scrape individual article content"""
         try:
             response = requests.get(url, headers=self.headers, timeout=15)
             response.raise_for_status()
@@ -60,14 +55,12 @@ class MoneyControlScraper:
                 'scraped_at': datetime.now().isoformat()
             }
             
-            # Extract title - multiple possible locations
             title_tag = (soup.find('h1', class_='article_title') or 
                         soup.find('h1', class_='artTitle') or
                         soup.find('h1') or
                         soup.find('title'))
             article_data['title'] = title_tag.get_text(strip=True) if title_tag else 'N/A'
             
-            # Extract publish date - multiple possible locations
             date_tag = (soup.find('div', class_='article_schedule') or
                        soup.find('span', class_='article_schedule') or
                        soup.find('div', class_='arttidate') or
@@ -79,7 +72,6 @@ class MoneyControlScraper:
             else:
                 article_data['published_date'] = 'N/A'
             
-            # Extract author - multiple possible locations
             author_tag = (soup.find('div', class_='article_author') or
                          soup.find('span', class_='article_author') or
                          soup.find('a', class_='author') or
@@ -87,16 +79,13 @@ class MoneyControlScraper:
             
             if author_tag:
                 author_text = author_tag.get_text(strip=True)
-                # Clean up author text
                 author_text = re.sub(r'^By\s+', '', author_text, flags=re.IGNORECASE)
                 article_data['author'] = author_text
             else:
                 article_data['author'] = 'N/A'
             
-            # Extract article content - try multiple selectors
             content_parts = []
             
-            # Method 1: Look for main content wrapper
             content_div = (soup.find('div', class_='content_wrapper') or
                           soup.find('div', class_='article_desc') or
                           soup.find('div', class_='articleContent') or
@@ -104,18 +93,15 @@ class MoneyControlScraper:
                           soup.find('article'))
             
             if content_div:
-                # Remove script and style tags
                 for script in content_div(['script', 'style', 'iframe']):
                     script.decompose()
                 
-                # Get all paragraphs
                 paragraphs = content_div.find_all('p')
                 for p in paragraphs:
                     text = p.get_text(strip=True)
-                    if text and len(text) > 20:  # Filter out very short paragraphs
+                    if text and len(text) > 20:  
                         content_parts.append(text)
             
-            # Method 2: If no content found, try finding all paragraphs in body
             if not content_parts:
                 all_paragraphs = soup.find_all('p')
                 for p in all_paragraphs:
@@ -126,10 +112,8 @@ class MoneyControlScraper:
             article_data['content'] = '\n\n'.join(content_parts) if content_parts else 'N/A'
             article_data['content_length'] = len(article_data['content'])
             
-            # Extract tags/categories
             tags = []
             
-            # Try different tag selectors
             tag_containers = (soup.find('div', class_='article_tags') or
                             soup.find('div', class_='tags') or
                             soup.find('ul', class_='tags'))
@@ -141,7 +125,6 @@ class MoneyControlScraper:
                     if tag_text:
                         tags.append(tag_text)
             
-            # Also look for meta keywords
             meta_keywords = soup.find('meta', {'name': 'keywords'})
             if meta_keywords and meta_keywords.get('content'):
                 keywords = meta_keywords['content'].split(',')
@@ -149,7 +132,6 @@ class MoneyControlScraper:
             
             article_data['tags'] = list(set(tags))  # Remove duplicates
             
-            # Extract category from URL
             url_parts = url.split('/')
             if 'news' in url_parts:
                 news_idx = url_parts.index('news')
@@ -165,9 +147,7 @@ class MoneyControlScraper:
             return None
     
     def save_article(self, article_data, folder_name, index):
-        """Save article as JSON file"""
         if article_data:
-            # Create filename from title or use index
             title_slug = re.sub(r'[^\w\s-]', '', article_data['title'][:50])
             title_slug = re.sub(r'[-\s]+', '_', title_slug).strip('_')
             
@@ -192,7 +172,6 @@ class MoneyControlScraper:
         
         all_links = set()
         
-        # Scrape multiple pages if needed
         for page in range(1, pages_to_scrape + 1):
             page_url = f"{self.news_url}page-{page}/" if page > 1 else self.news_url
             print(f"Fetching articles from page {page}...")
@@ -204,13 +183,11 @@ class MoneyControlScraper:
         print(f"\nTotal unique article links found: {len(all_links)}")
         print("=" * 60)
         
-        # Limit to max_articles
         links_to_scrape = list(all_links)[:max_articles]
         
         successful_scrapes = 0
         failed_scrapes = 0
         
-        # Scrape each article
         for idx, link in enumerate(links_to_scrape, 1):
             print(f"\n[{idx}/{len(links_to_scrape)}] Scraping: {link}")
             article_data = self.scrape_article(link)
@@ -222,9 +199,8 @@ class MoneyControlScraper:
                 print(f"  ✗ Failed to scrape or no content found")
                 failed_scrapes += 1
             
-            sleep(2)  # Be polite - wait 2 seconds between requests
+            sleep(2) 
         
-        # Create summary file
         summary = {
             'scrape_date': datetime.now().isoformat(),
             'total_articles_attempted': len(links_to_scrape),
@@ -247,6 +223,4 @@ class MoneyControlScraper:
 if __name__ == "__main__":
     scraper = MoneyControlScraper()
     
-    # Scrape 20 articles from 2 pages
-    # Adjust these parameters as needed
     scraper.run(max_articles=400, pages_to_scrape=100)
