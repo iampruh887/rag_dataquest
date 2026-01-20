@@ -1,180 +1,137 @@
-# Financial RAG System with Pathway + Google Gemini 2.5
+# **Gemini Financial Agent with Pathway RAG**
 
-**GPU-optimized RAG using Pathway for financial news + Google Gemini 2.5 AI Agent** 🚀
+This documentation provides a technical overview and implementation guide for the **Gemini Financial Agent**, a high-performance system integrating **Google Gemini 2.5** with the **Pathway RAG** (Retrieval-Augmented Generation) framework. This architecture is designed for low-latency, context-aware financial news analysis and market synthesis.
 
-Complete system for financial news analysis with:
-- **Pathway** for real-time streaming data processing
-- **Google Gemini 2.5** for intelligent AI responses
-- **GPU acceleration** for fast embeddings (RTX 3050 optimized)
+## ---
 
-## Quick Start (3 steps)
+**Core System Features**
 
-1. **Install:**
-```bash
-pip install -r requirements.txt
-```
+* **Model Integration:** Powered by **Google Gemini 2.5**, optimized for deep financial reasoning and multimodal document understanding.  
+* **Live RAG Pipeline:** Utilizes **Pathway** for real-time document indexing. Unlike static vector databases, Pathway automatically detects updates to your source files without requiring manual re-indexing.  
+* **Hardware Acceleration:** Native support for **GPU-optimized embeddings** (specifically tuned for NVIDIA RTX 3050 and similar architectures) ensuring retrieval times under 100ms.  
+* **Analysis Modules:** Specialized logic for **Company deep-dives**, **Comparative analysis**, and **Market sentiment summarization**.  
+* **Dual-Interface Access:** Includes both a **Gradio-based Web UI** for visual dashboards and a **CLI** for rapid interactive sessions.
 
-1.2 **make knowledgebase**
-```bash
+## ---
+
+**Technical Architecture**
+
+The system follows a linear retrieval-to-generation pipeline:
+
+1. **Ingestion:** Pathway monitors the data directory (e.g., financial\_data/) for new or updated JSONL/JSON files.  
+2. **Vector Retrieval:** User queries are converted into embeddings and matched against the live index.  
+3. **Context Injection:** Relevant snippets are retrieved and injected into a structured system prompt.  
+4. **Inference:** Gemini 2.5 processes the augmented prompt to generate a grounded response.
+
+## ---
+
+**Installation and Setup**
+
+### **1\. Environment Configuration**
+
+Ensure Python 3.10+ is installed. Clone the repository and install the core dependencies:
+
+Bash
+
+pip install \-r requirements.txt
+
+### **2\. API Authentication**
+
+Acquire a Google API Key from [Google AI Studio](https://aistudio.google.com/apikey).
+
+**Method A: Environment Export**
+
+Bash
+
+export GOOGLE\_API\_KEY='your\_api\_key\_here'
+
+Method B: Dotenv File  
+Create a .env file in the root directory:
+
+Plaintext
+
+GOOGLE\_API\_KEY=your\_api\_key\_here
+
+### **3\. Data Initialization**
+
+Populate the financial\_data/ directory with news or reports. If starting from scratch, use the provided scraper:
+
+Bash
+
 python scraper.py
-```
 
-2. **Set Google API Key:**
-```bash
-export GOOGLE_API_KEY='your-api-key-here'
-# Get key from: https://aistudio.google.com/apikey
-```
+## ---
 
-3. **Launch UI:**
-```bash
-./start_ui.sh
-# Or: python ui.py
-```
+**Usage Guide**
 
-Then open: **http://localhost:7864**
+### **Launching the Web Dashboard**
 
-## Alternative: Command Line
+The Gradio UI provides separate tabs for chat, comparison, and market overviews.
 
-```bash
-# Test RAG system
-python rag_system.py
+Bash
 
-# Test Gemini agent
-python test_gemini.py
+python ui.py
 
-# Interactive chat
-python gemini_agent.py
-```
+**Default Access:** http://localhost:7864
 
-## Features
+### **Command Line Interface (CLI)**
 
-- ✅ **Beautiful Web UI**: Modern Gradio interface with multiple tabs
-- ✅ **Pathway Powered**: Real-time streaming data processing
-- ✅ **Gemini 2.5 AI**: Latest Google AI model integration
-- ✅ **GPU Optimized**: Uses your RTX 3050 automatically
-- ✅ **Interactive Chat**: Real-time Q&A with financial context
-- ✅ **Company Analysis**: Detailed financial analysis tools
-- ✅ **Auto-Updates**: Pathway monitors for new JSON files
-- ✅ **MoneyControl Data**: Works with scraped financial news
-- ✅ **Simple API**: One function call to get started
+Run the interactive agent directly in your terminal:
 
-## UI Features
+Bash
 
-The web interface includes:
+python gemini\_agent.py
 
-- 💬 **Chat Tab** - Interactive conversation with AI
-- 📊 **Company Analysis** - Detailed company insights
-- ⚖️ **Compare Companies** - Side-by-side comparison
-- 🌍 **Market Summary** - Overall market analysis
-- 🔍 **RAG Context Viewer** - See retrieved context
+* **norag**: Toggle to disable RAG and use Gemini's base training data only.  
+* **quit**: Terminate the session.
 
-![UI Preview](https://via.placeholder.com/800x400?text=Financial+AI+Agent+UI)
+## ---
 
-## Usage Examples
+**API Reference**
 
-### 1. Using Gemini AI Agent (Recommended)
+### **GeminiFinancialAgent Class**
 
-```python
-from gemini_agent import GeminiFinancialAgent
+The primary entry point for programmatic interaction.
 
-# Initialize agent
-agent = GeminiFinancialAgent()
+| Method | Parameters | Description |
+| :---- | :---- | :---- |
+| **ask()** | question, use\_rag=True | General query function with optional context retrieval. |
+| **analyze\_company()** | company\_name | Generates a structured SWOT or performance report. |
+| **compare\_companies()** | c1, c2 | Side-by-side metric comparison and relative valuation. |
+| **market\_summary()** | *None* | Aggregates all indexed news into a broad market outlook. |
 
-# Ask questions
-response = agent.ask("How is Tesla performing?")
-print(response)
+## ---
 
-# Company analysis
-analysis = agent.analyze_company("Apple")
-print(analysis)
+**Configuration Details**
 
-# Interactive chat
-agent.chat()
-```
+### **Model Parameters**
 
-### 2. Using RAG Only (Custom AI Integration)
+Modify gemini\_agent.py to adjust inference behavior:
 
-```python
-from rag_system import get_financial_context
+* **temperature**: Set to **0.7** for a balance between factual accuracy and natural phrasing.  
+* **top\_p**: Set to **0.95** to ensure diverse vocabulary in financial summaries.  
+* **max\_output\_tokens**: Defaulted to **1024** for comprehensive multi-paragraph responses.
 
-# Get context
-context = get_financial_context("Tesla earnings")
+### **Pathway Optimization**
 
-# Use with your AI model
-prompt = f"Context: {context}\nQuestion: {question}\nAnswer:"
-response = your_ai_model.generate(prompt)
-```
+Pathway automatically utilizes CUDA if an NVIDIA GPU is detected. If the system logs **"CUDA not available"**, it will fall back to CPU-based indexing.
 
-### 3. Multiple Queries
+## ---
 
-```python
-from rag_system import create_rag_system
+**Data Schema Requirements**
 
-rag = create_rag_system()  # Create once
+For optimal retrieval, ensure your financial data follows this JSON structure:
 
-# Use many times
-context1 = rag.get_context("Tesla")
-context2 = rag.get_context("Apple")
-```
+JSON
 
-## Add Your Financial Data
-
-Drop JSONL files in `financial_data/`:
-
-```jsonl
-{"title": "Company News", "content": "News content...", "company": "Company Name", "date": "2024-01-01"}
-{"title": "Market Update", "content": "More content...", "company": "Another Co", "date": "2024-01-02"}
-```
-
-Or JSON files (auto-converted):
-
-```json
-{
-  "title": "Company News",
-  "content": "News content...",
-  "company": "Company Name", 
-  "date": "2024-01-01"
+{  
+  "title": "Quarterly Earnings Report",  
+  "content": "Full text of the financial news or report here...",  
+  "company": "NVIDIA",  
+  "date": "2026-01-20",  
+  "source": "Market News"  
 }
-```
-
-Pathway automatically detects and processes new files!
-
-## Documentation
-
-- **[GEMINI_INTEGRATION.md](GEMINI_INTEGRATION.md)** - Complete Gemini integration guide
-- **[README.md](README.md)** - This file with setup and usage instructions
-
-## Data Source
-
-The system uses the `moneycontrol_news` directory by default. This directory contains scraped financial news articles in JSON format.
-
-**JSON Structure:**
-```json
-{
-  "title": "Article Title",
-  "content": "Full article content...",
-  "published_date": "January 16, 2026",
-  "author": "Author Name",
-  "category": "business",
-  "url": "https://..."
-}
-```
-
-To use different data, change the directory in `ui.py` or `rag_system.py`.
-
-## Test Everything
-
-```bash
-# Test RAG system
-python test_rag.py
-
-# Test Gemini agent
-python test_gemini.py
-
-# Run the UI
-./start_ui.sh
-```
 
 ---
 
-**Powered by Pathway + Google Gemini 2.5 - Simple API, powerful AI!** 🎯
+**System powered by Google Gemini 2.5 \+ Pathway Streaming RAG.**
